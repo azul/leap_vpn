@@ -104,7 +104,8 @@ class VPNObserver(object):
 
         sig = self._get_signal(event)
         if sig is not None:
-            self._signaler.signal(sig)
+            if self._signaler is not None:
+                self._signaler.signal(sig)
             return
         else:
             logger.debug('We got %s event from openvpn output but we could '
@@ -120,6 +121,8 @@ class VPNObserver(object):
         :returns: a Signaler signal or None
         :rtype: str or None
         """
+        if self._signaler is None:
+            return
         sig = self._signaler
         signals = {
             "network_unreachable": sig.eip_network_unreachable,
@@ -254,6 +257,7 @@ class VPN(object):
                   subprocess is 0.
         :rtype: bool
         """
+        return True
         # XXX could check for wrapper existence, check it's root owned etc.
         # XXX could check that the iptables rules are in place.
         gateways = [gateway for gateway, port in gateways]
@@ -271,6 +275,7 @@ class VPN(object):
 
         :rtype: bool
         """
+        return True
         BM_ROOT = force_eval(linuxvpnlauncher.LinuxVPNLauncher.BITMASK_ROOT)
         fw_up_cmd = "pkexec {0} firewall isup".format(BM_ROOT)
         fw_is_down = lambda: commands.getstatusoutput(fw_up_cmd)[0] == 256
@@ -280,6 +285,7 @@ class VPN(object):
         """
         Tear the firewall down using the privileged wrapper.
         """
+        return True
         if IS_MAC:
             # We don't support Mac so far
             return True
@@ -632,7 +638,8 @@ class VPNManager(object):
 
             state = status_step
             if state != self._last_state:
-                self._signaler.signal(self._signaler.eip_state_changed, state)
+                if self._signaler is not None:
+                    self._signaler.signal(self._signaler.eip_state_changed, state)
                 self._last_state = state
 
     def _parse_status_and_notify(self, output):
@@ -670,7 +677,8 @@ class VPNManager(object):
 
         status = (tun_tap_read, tun_tap_write)
         if status != self._last_status:
-            self._signaler.signal(self._signaler.eip_status_changed, status)
+            if self._signaler is not None:
+                self._signaler.signal(self._signaler.eip_status_changed, status)
             self._last_status = status
 
     def get_state(self):
@@ -905,8 +913,9 @@ class VPNProcess(protocol.ProcessProtocol, VPNManager):
         exit_code = reason.value.exitCode
         if isinstance(exit_code, int):
             logger.debug("processExited, status %d" % (exit_code,))
-        self._signaler.signal(
-            self._signaler.eip_process_finished, exit_code)
+        if self._signaler is not None:
+            self._signaler.signal(
+                self._signaler.eip_process_finished, exit_code)
         self._alive = False
 
     def processEnded(self, reason):

@@ -19,6 +19,7 @@
 Command line interface app to use EIP
 """
 import os
+import time
 
 from twisted.internet import reactor
 
@@ -27,14 +28,47 @@ from leap.vpn.firewall import FirewallManager
 from leap.vpn.utils import get_path_prefix
 
 
-def main():
+def wait(secs):
+    print("Waiting {} seconds...".format(secs))
+    time.sleep(secs)
+
+
+def test_firewall():
+    remotes = (  # XXX HACK picked manually from eip-service.json
+        ("198.252.153.84", "1194"),
+        ("46.165.242.169", "1194"),
+    )
+
+    firewall = FirewallManager(remotes)
+
+    print("Firewall: starting...")
+    fw_ok = firewall.start()
+    if fw_ok:
+        print("Firewall: started")
+        # vpn_ok = vpn.start()
+        print ("Here we would start VPN")
+    else:
+        print ("Firewall: Error starting.")
+        return
+
+    wait(1)
+    print "Firewall: is up? -> " + str(firewall.is_up())
+    wait(3)
+    print("Firewall: stopping...")
+    fw_ok = firewall.stop()
+    print("Firewall: stopped.")
+    wait(1)
+    print "Firewall: is up? -> " + str(firewall.is_up())
+
+
+def test_vpn():
     remotes = (  # XXX HACK picked manually from eip-service.json
         ("198.252.153.84", "1194"),
         ("46.165.242.169", "1194"),
     )
 
     prefix = os.path.join(get_path_prefix(),
-                          "/leap/providers/demo.bitmask.net/keys")
+                          "leap/providers/demo.bitmask.net/keys")
     cert_path = key_path = prefix + "/client/openvpn.pem"
     ca_path = prefix + "/ca/cacert.pem"
 
@@ -46,18 +80,31 @@ def main():
         "tun-ipv6": "true",
     }
 
-    firewall = FirewallManager(remotes)
     vpn = VPNManager(remotes, cert_path, key_path, ca_path, extra_flags)
 
-    fw_ok = firewall.start()
-    if fw_ok:
-        vpn_ok = vpn.start()
+    print("VPN: starting...")
+    vpn_ok = vpn.start()
+    if vpn_ok:
+        print("VPN: started")
     else:
-        print ("Error starting Firewall")
+        print ("VPN: Error starting.")
         return
 
-    if not vpn_ok:
-        print ("Error starting VPN")
+    return
+    wait(1)
+    print "VPN: is up? -> " + str(vpn.is_up())
+    wait(3)
+    print("VPN: stopping...")
+    vpn_ok = vpn.stop()
+    print("VPN: stopped.")
+    wait(1)
+    print "VPN: is up? -> " + str(vpn.is_up())
+
+
+def main():
+    # test_firewall()
+    test_vpn()
+
 
 if __name__ == "__main__":
     # main()

@@ -18,11 +18,10 @@
 VPN Manager
 """
 import os
-import subprocess
 import tempfile
 
 from leap.vpn import vpnprocess
-from leap.vpn.constants import IS_MAC, IS_WIN
+from leap.vpn.constants import IS_WIN
 
 
 class _TempEIPConfig(object):
@@ -81,9 +80,6 @@ class VPNManager(object):
         signaler = None  # XXX handle signaling somehow...
         self._vpn = vpnprocess.VPN(remotes=remotes, signaler=signaler)
 
-    def set_openvpn_flags(self, flags):
-        self._flags = flags
-
     def start(self):
         """
         Start the VPN process.
@@ -94,7 +90,7 @@ class VPNManager(object):
         * domain name
         """
         host, port = self._get_management()
-        restart = False  # XXX review this!
+        restart = True  # TODO review this!
 
         # TODO need gateways here
         # sorting them doesn't belong in here
@@ -105,7 +101,6 @@ class VPNManager(object):
                         socket_host=host, socket_port=port,
                         restart=restart)
 
-    # def bitmask_root_vpn_down(self):
     def stop(self):
         """
         Bring openvpn down using the privileged wrapper.
@@ -113,19 +108,25 @@ class VPNManager(object):
         :returns: True if succeeded, False otherwise.
         :rtype: bool
         """
-        if IS_MAC:
-            # We don't support Mac so far
-            return True
+        self._vpn.terminate(False, False)  # TODO review params
 
-        exitCode = subprocess.call(["pkexec", self.BITMASK_ROOT,
-                                    "openvpn", "stop"])
-        return True if exitCode is 0 else False
+        # TODO how to return False if this fails
+        return True
+
+    def is_up(self):
+        """
+        Return whether the VPN is up or not.
+
+        :rtype: bool
+        """
+        pass
 
     def kill(self):
         """
         Sends a kill signal to the openvpn process.
         """
         pass
+        # self._vpn.killit()
 
     def terminate(self):
         """

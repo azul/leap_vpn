@@ -187,8 +187,6 @@ class VPNLauncher(object):
         :return: A VPN command ready to be launched.
         :rtype: list
         """
-        print "R"*20
-        print remotes
         # leap_assert_type(eipconfig, EIPConfig)
         # leap_assert_type(providerconfig, ProviderConfig)
 

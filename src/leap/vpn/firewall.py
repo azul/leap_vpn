@@ -24,18 +24,23 @@ from leap.vpn.constants import IS_MAC
 
 
 class FirewallManager(object):
-
-    BITMASK_ROOT = ""  # TODO add the bitmask-root path here
+    """
+    Firewall manager that blocks/unblocks all the internet traffic with some
+    exceptions.
+    This allows us to achieve fail close on a vpn connection.
+    """
+    BITMASK_ROOT = "/usr/local/sbin/bitmask-root"
 
     def __init__(self, remotes):
         """
-        :param gateways: the gateway(s) that we will allow
-        :type gateways: list
+        Initialize the firewall manager with a set of remotes that we won't
+        block.
+
+        :param remotes: the gateway(s) that we will allow
+        :type remotes: list
         """
         self._remotes = remotes
-        pass
 
-    # def _launch_firewall(self, gateways, restart=False):
     def start(self, restart=False):
         """
         Launch the firewall using the privileged wrapper.
@@ -44,13 +49,13 @@ class FirewallManager(object):
                   subprocess is 0.
         :rtype: bool
         """
-        return True
+        gateways = [gateway for gateway, port in self._remotes]
         # XXX check for wrapper existence, check it's root owned etc.
         # XXX check that the iptables rules are in place.
         cmd = ["pkexec", self.BITMASK_ROOT, "firewall", "start"]
         if restart:
             cmd.append("restart")
-        exitCode = subprocess.call(cmd + self._remotes)
+        exitCode = subprocess.call(cmd + gateways)
         return True if exitCode is 0 else False
 
     # def tear_down_firewall(self):
@@ -65,7 +70,6 @@ class FirewallManager(object):
         exitCode = subprocess.call(["pkexec", self.BITMASK_ROOT,
                                     "firewall", "stop"])
         return True if exitCode is 0 else False
-        pass
 
     # def is_fw_down(self):
     def is_up(self):
