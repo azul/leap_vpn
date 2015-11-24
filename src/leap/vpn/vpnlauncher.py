@@ -25,17 +25,20 @@ import stat
 from abc import ABCMeta, abstractmethod
 from functools import partial
 
-from leap.bitmask.backend.settings import Settings, GATEWAY_AUTOMATIC
-from leap.bitmask.config import flags
-from leap.bitmask.config.providerconfig import ProviderConfig
-from leap.bitmask.logs.utils import get_logger
-from leap.bitmask.platform_init import IS_LINUX
-from leap.bitmask.services.eip.eipconfig import EIPConfig, VPNGatewaySelector
-from leap.bitmask.util import force_eval
-from leap.common.check import leap_assert, leap_assert_type
+# from leap.bitmask.backend.settings import Settings, GATEWAY_AUTOMATIC
+# from leap.bitmask.config.providerconfig import ProviderConfig
+from leap.vpn.logs import get_logger
+# from leap.bitmask.logs.utils import get_logger
+# from leap.bitmask.platform_init import IS_LINUX
+from leap.vpn.constants import IS_LINUX
+# from leap.bitmask.services.eip.eipconfig import EIPConfig, VPNGatewaySelector
+from leap.vpn.utils import force_eval
+# from leap.common.check import leap_assert, leap_assert_type
 
 
 logger = get_logger()
+
+flags_STANDALONE = False
 
 
 class VPNLauncherException(Exception):
@@ -161,7 +164,7 @@ class VPNLauncher(object):
     @classmethod
     @abstractmethod
     def get_vpn_command(kls, eipconfig, providerconfig,
-                        socket_host, socket_port, openvpn_verb=1):
+                        socket_host, socket_port, remotes, openvpn_verb=1):
         """
         Return the platform-dependant vpn command for launching openvpn.
 
@@ -184,8 +187,10 @@ class VPNLauncher(object):
         :return: A VPN command ready to be launched.
         :rtype: list
         """
-        leap_assert_type(eipconfig, EIPConfig)
-        leap_assert_type(providerconfig, ProviderConfig)
+        print "R"*20
+        print remotes
+        # leap_assert_type(eipconfig, EIPConfig)
+        # leap_assert_type(providerconfig, ProviderConfig)
 
         # XXX this still has to be changed on osx and windows accordingly
         # kwargs = {}
@@ -211,7 +216,8 @@ class VPNLauncher(object):
         if openvpn_verb is not None:
             args += ['--verb', '%d' % (openvpn_verb,)]
 
-        gateways = kls.get_gateways(eipconfig, providerconfig)
+        # gateways = kls.get_gateways(eipconfig, providerconfig)
+        gateways = remotes
 
         for ip, port in gateways:
             args += ['--remote', ip, port, 'udp']
@@ -290,9 +296,14 @@ class VPNLauncher(object):
         if IS_LINUX:
             return []
         else:
-            leap_assert(kls.UPDOWN_FILES is not None,
-                        "Need to define UPDOWN_FILES for this particular "
-                        "launcher before calling this method")
+            # leap_assert(kls.UPDOWN_FILES is not None,
+            #             "Need to define UPDOWN_FILES for this particular "
+            #             "launcher before calling this method")
+            # TODO assert vs except?
+            if kls.UPDOWN_FILES is None:
+                raise Exception(
+                    "Need to define UPDOWN_FILES for this particular "
+                    "launcher before calling this method")
             file_exist = partial(_has_updown_scripts, warn=False)
             zipped = zip(kls.UPDOWN_FILES, map(file_exist, kls.UPDOWN_FILES))
             missing = filter(lambda (path, exists): exists is False, zipped)
@@ -306,13 +317,20 @@ class VPNLauncher(object):
 
         :rtype: list
         """
-        leap_assert(kls.OTHER_FILES is not None,
-                    "Need to define OTHER_FILES for this particular "
-                    "auncher before calling this method")
+        # leap_assert(kls.OTHER_FILES is not None,
+        #             "Need to define OTHER_FILES for this particular "
+        #             "auncher before calling this method")
+
+        # TODO assert vs except?
+        if kls.OTHER_FILES is None:
+            raise Exception(
+                "Need to define OTHER_FILES for this particular "
+                "auncher before calling this method")
+
         other = force_eval(kls.OTHER_FILES)
         file_exist = partial(_has_other_files, warn=False)
 
-        if flags.STANDALONE:
+        if flags_STANDALONE:
             try:
                 from leap.bitmask import _binaries
             except ImportError:

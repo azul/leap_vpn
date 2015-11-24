@@ -22,10 +22,10 @@ import getpass
 import os
 import sys
 
-from leap.bitmask.logs.utils import get_logger
-from leap.bitmask.services.eip.vpnlauncher import VPNLauncher
-from leap.bitmask.services.eip.vpnlauncher import VPNLauncherException
-from leap.bitmask.util import get_path_prefix
+from leap.vpn.logs import get_logger
+from leap.vpn.vpnlauncher import VPNLauncher
+from leap.vpn.vpnlauncher import VPNLauncherException
+from leap.vpn.utils import get_path_prefix
 
 logger = get_logger()
 

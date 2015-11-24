@@ -51,7 +51,11 @@ def parse_requirements(reqfiles=None):
                     'pkg/requirements.txt', 'pkg/requirements.pip']
 
     requirements = []
-    for line in get_reqs_from_files(reqfiles):
+    raw_reqs = get_reqs_from_files(reqfiles)
+    if raw_reqs is None:
+        return
+
+    for line in raw_reqs:
         # -e git://foo.bar/baz/master#egg=foobar
         if re.match(r'\s*-e\s+', line):
             pass

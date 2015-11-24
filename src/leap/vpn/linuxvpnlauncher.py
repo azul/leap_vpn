@@ -21,13 +21,15 @@ import commands
 import os
 import sys
 
-from leap.bitmask.config import flags
-from leap.bitmask.logs.utils import get_logger
-from leap.bitmask.util import first
-from leap.bitmask.util import get_path_prefix, force_eval
-from leap.bitmask.util.privilege_policies import LinuxPolicyChecker
-from leap.bitmask.util.privilege_policies import NoPkexecAvailable
-from leap.bitmask.util.privilege_policies import NoPolkitAuthAgentAvailable
+# from leap.bitmask.config import flags
+# from leap.bitmask.logs.utils import get_logger
+from leap.vpn.logs import get_logger
+# from leap.bitmask.util import first
+from leap.vpn.utils import first
+from leap.vpn.utils import get_path_prefix, force_eval
+from leap.vpn.privilege_policies import LinuxPolicyChecker
+from leap.vpn.privilege_policies import NoPkexecAvailable
+from leap.vpn.privilege_policies import NoPolkitAuthAgentAvailable
 
 # from leap.bitmask.services.eip.vpnlauncher import VPNLauncher
 # from leap.bitmask.services.eip.vpnlauncher import VPNLauncherException
@@ -37,6 +39,8 @@ from leap.vpn.vpnlauncher import VPNLauncherException
 logger = get_logger()
 
 COM = commands
+
+flags_STANDALONE = False
 
 
 class EIPNoPolkitAuthAgentAvailable(VPNLauncherException):
@@ -60,12 +64,12 @@ class LinuxVPNLauncher(VPNLauncher):
 
     class BITMASK_ROOT(object):
         def __call__(self):
-            return ("/usr/local/sbin/bitmask-root" if flags.STANDALONE else
+            return ("/usr/local/sbin/bitmask-root" if flags_STANDALONE else
                     "/usr/sbin/bitmask-root")
 
     class OPENVPN_BIN_PATH(object):
         def __call__(self):
-            return ("/usr/local/sbin/leap-openvpn" if flags.STANDALONE else
+            return ("/usr/local/sbin/leap-openvpn" if flags_STANDALONE else
                     "/usr/sbin/openvpn")
 
     class POLKIT_PATH(object):
@@ -77,7 +81,7 @@ class LinuxVPNLauncher(VPNLauncher):
 
     @classmethod
     def get_vpn_command(kls, eipconfig, providerconfig, socket_host,
-                        socket_port="unix", openvpn_verb=1):
+                        remotes, socket_port="unix", openvpn_verb=1):
         """
         Returns the Linux implementation for the vpn launching command.
 
@@ -104,7 +108,8 @@ class LinuxVPNLauncher(VPNLauncher):
         """
         # we use `super` in order to send the class to use
         command = super(LinuxVPNLauncher, kls).get_vpn_command(
-            eipconfig, providerconfig, socket_host, socket_port, openvpn_verb)
+            eipconfig, providerconfig, socket_host, socket_port, remotes,
+            openvpn_verb)
 
         command.insert(0, force_eval(kls.BITMASK_ROOT))
         command.insert(1, "openvpn")
@@ -157,7 +162,7 @@ class LinuxVPNLauncher(VPNLauncher):
                                    bitmask_root)
         cmd += 'chmod 744 "%s"\n' % (bitmask_root, )
 
-        if flags.STANDALONE:
+        if flags_STANDALONE:
             cmd += 'cp "%s" "%s"\n' % (
                 os.path.join(frompath, openvpn_bin_file),
                 openvpn_bin_path)

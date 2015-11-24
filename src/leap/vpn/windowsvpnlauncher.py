@@ -17,9 +17,8 @@
 """
 Windows VPN launcher implementation.
 """
-from leap.bitmask.logs.utils import get_logger
-from leap.bitmask.services.eip.vpnlauncher import VPNLauncher
-from leap.common.check import leap_assert
+from leap.vpn.logs import get_logger
+from leap.vpn.vpnlauncher import VPNLauncher
 
 logger = get_logger()
 
@@ -58,8 +57,9 @@ class WindowsVPNLauncher(VPNLauncher):
         :return: A VPN command ready to be launched.
         :rtype: list
         """
-        leap_assert(socket_port != "unix",
-                    "We cannot use unix sockets in windows!")
+        # TODO add check for this
+        # leap_assert(socket_port != "unix",
+        #             "We cannot use unix sockets in windows!")
 
         # we use `super` in order to send the class to use
         command = super(WindowsVPNLauncher, kls).get_vpn_command(

@@ -40,23 +40,24 @@ from twisted.internet import defer, protocol, reactor
 from twisted.internet import error as internet_error
 from twisted.internet.task import LoopingCall
 
-from leap.bitmask.config import flags
-from leap.bitmask.config.providerconfig import ProviderConfig
-from leap.bitmask.logs.utils import get_logger
-from leap.bitmask.services.eip.eipconfig import EIPConfig
-from leap.bitmask.util import first, force_eval
-from leap.bitmask.platform_init import IS_MAC, IS_LINUX
-from leap.common.check import leap_assert, leap_assert_type
+from leap.vpn.logs import get_logger
+# from leap.bitmask.logs.utils import get_logger
+# from leap.bitmask.util import first, force_eval
+from leap.vpn.utils import first, force_eval
+from leap.vpn.constants import IS_MAC, IS_LINUX
 
 # from leap.bitmask.services.eip import get_vpn_launcher
 # from leap.bitmask.services.eip import linuxvpnlauncher
 # from leap.bitmask.services.eip.udstelnet import UDSTelnet
-from leap.vpn import get_vpn_launcher
+from leap.vpn.utils import get_vpn_launcher
 from leap.vpn import linuxvpnlauncher
 from leap.vpn.udstelnet import UDSTelnet
 
 
 logger = get_logger()
+
+# OpenVPN verbosity level - from flags.py
+OPENVPN_VERBOSITY = 1
 
 
 class VPNObserver(object):
@@ -164,9 +165,11 @@ class VPN(object):
         self._pollers = []
 
         self._signaler = kwargs['signaler']
-        self._openvpn_verb = flags.OPENVPN_VERBOSITY
+        # self._openvpn_verb = flags.OPENVPN_VERBOSITY
+        self._openvpn_verb = None
 
         self._user_stopped = False
+        self._remotes = kwargs['remotes']
 
     def start(self, *args, **kwargs):
         """
@@ -183,6 +186,7 @@ class VPN(object):
         self._stop_pollers()
         kwargs['openvpn_verb'] = self._openvpn_verb
         kwargs['signaler'] = self._signaler
+        kwargs['remotes'] = self._remotes
 
         restart = kwargs.pop('restart', False)
 
@@ -195,7 +199,8 @@ class VPN(object):
 
         # we try to bring the firewall up
         if IS_LINUX:
-            gateways = vpnproc.getGateways()
+            # gateways = vpnproc.getGateways()
+            gateways = self._remotes
             firewall_up = self._launch_firewall(gateways,
                                                 restart=restart)
             if not restart and not firewall_up:
@@ -251,6 +256,7 @@ class VPN(object):
         """
         # XXX could check for wrapper existence, check it's root owned etc.
         # XXX could check that the iptables rules are in place.
+        gateways = [gateway for gateway, port in gateways]
 
         BM_ROOT = force_eval(linuxvpnlauncher.LinuxVPNLauncher.BITMASK_ROOT)
         cmd = ["pkexec", BM_ROOT, "firewall", "start"]
@@ -462,7 +468,7 @@ class VPNManager(object):
         :return: response read
         :rtype: list
         """
-        leap_assert(self._tn, "We need a tn connection!")
+        # leap_assert(self._tn, "We need a tn connection!")
 
         try:
             self._tn.write("%s\n" % (command,))
@@ -819,7 +825,7 @@ class VPNProcess(protocol.ProcessProtocol, VPNManager):
     """
 
     def __init__(self, eipconfig, providerconfig, socket_host, socket_port,
-                 signaler, openvpn_verb):
+                 signaler, openvpn_verb, remotes):
         """
         :param eipconfig: eip configuration object
         :type eipconfig: EIPConfig
@@ -843,9 +849,6 @@ class VPNProcess(protocol.ProcessProtocol, VPNManager):
         :type openvpn_verb: int
         """
         VPNManager.__init__(self, signaler=signaler)
-        leap_assert_type(eipconfig, EIPConfig)
-        leap_assert_type(providerconfig, ProviderConfig)
-
         # leap_assert(not self.isRunning(), "Starting process more than once!")
 
         self._eipconfig = eipconfig
@@ -865,6 +868,8 @@ class VPNProcess(protocol.ProcessProtocol, VPNManager):
 
         self._vpn_observer = VPNObserver(signaler)
         self.is_restart = False
+
+        self._remotes = remotes
 
     # processProtocol methods
 
@@ -943,12 +948,14 @@ class VPNProcess(protocol.ProcessProtocol, VPNManager):
 
         :rtype: list of str
         """
+        print self._remotes
         command = self._launcher.get_vpn_command(
             eipconfig=self._eipconfig,
             providerconfig=self._providerconfig,
             socket_host=self._socket_host,
             socket_port=self._socket_port,
-            openvpn_verb=self._openvpn_verb)
+            openvpn_verb=self._openvpn_verb,
+            remotes=self._remotes)
 
         encoding = sys.getfilesystemencoding()
         for i, c in enumerate(command):

@@ -20,32 +20,37 @@ Firewall Manager
 import commands
 import subprocess
 
-# XXX this doesn't exist yet
-from leap.common.constants import IS_MAC
+from leap.vpn.constants import IS_MAC
 
 
 class FirewallManager(object):
 
     BITMASK_ROOT = ""  # TODO add the bitmask-root path here
 
-    # def _launch_firewall(self, gateways, restart=False):
-    def start(self, gateways, restart=False):
+    def __init__(self, remotes):
         """
-        Launch the firewall using the privileged wrapper.
-
         :param gateways: the gateway(s) that we will allow
         :type gateways: list
+        """
+        self._remotes = remotes
+        pass
+
+    # def _launch_firewall(self, gateways, restart=False):
+    def start(self, restart=False):
+        """
+        Launch the firewall using the privileged wrapper.
 
         :returns: True if the exitcode of calling the root helper in a
                   subprocess is 0.
         :rtype: bool
         """
+        return True
         # XXX check for wrapper existence, check it's root owned etc.
         # XXX check that the iptables rules are in place.
         cmd = ["pkexec", self.BITMASK_ROOT, "firewall", "start"]
         if restart:
             cmd.append("restart")
-        exitCode = subprocess.call(cmd + gateways)
+        exitCode = subprocess.call(cmd + self._remotes)
         return True if exitCode is 0 else False
 
     # def tear_down_firewall(self):
