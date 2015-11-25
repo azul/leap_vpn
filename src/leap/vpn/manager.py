@@ -100,6 +100,7 @@ class VPNManager(object):
                         providerconfig=self._providerconfig,
                         socket_host=host, socket_port=port,
                         restart=restart)
+        return True
 
     def stop(self):
         """

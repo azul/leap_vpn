@@ -19,50 +19,71 @@
 Command line interface app to use EIP
 """
 import os
-import time
 
+from colorama import init as color_init
+from colorama import Fore
 from twisted.internet import reactor
 
 from leap.vpn import VPNManager
-from leap.vpn.firewall import FirewallManager
+from leap.vpn import FirewallManager
 from leap.vpn.utils import get_path_prefix
 
 
-def wait(secs):
-    print("Waiting {} seconds...".format(secs))
-    time.sleep(secs)
+class EIPManager(object):
+    def __init__(self, remotes, cert, key, ca, flags):
+        """
+        """
+        self._firewall = FirewallManager(remotes)
+        self._vpn = VPNManager(remotes, cert, key, ca, flags)
+
+    def start(self):
+        """TODO: Docstring for start.
+        :returns: TODO
+
+        """
+        print(Fore.BLUE + "Firewall: starting..." + Fore.RESET)
+        fw_ok = self._firewall.start()
+        if not fw_ok:
+            return False
+
+        print(Fore.GREEN + "Firewall: started" + Fore.RESET)
+
+        vpn_ok = self._vpn.start()
+        if not vpn_ok:
+            print (Fore.RED + "VPN: Error starting." + Fore.RESET)
+            self._firewall.stop()
+            print(Fore.GREEN + "Firewall: stopped." + Fore.RESET)
+            return False
+
+        print(Fore.GREEN + "VPN: started" + Fore.RESET)
+
+    def stop(self):
+        """TODO: Docstring for stop.
+
+        :returns: TODO
+        """
+        print(Fore.BLUE + "Firewall: stopping..." + Fore.RESET)
+        fw_ok = self._firewall.stop()
+
+        if not fw_ok:
+            print (Fore.RED + "Firewall: Error stopping." + Fore.RESET)
+            return False
+
+        print(Fore.GREEN + "Firewall: stopped." + Fore.RESET)
+        print(Fore.BLUE + "VPN: stopping..." + Fore.RESET)
+
+        vpn_ok = self._vpn.stop()
+        if not vpn_ok:
+            print (Fore.RED + "VPN: Error stopping." + Fore.RESET)
+            return False
+
+        print(Fore.GREEN + "VPN: stopped." + Fore.RESET)
+        return True
 
 
-def test_firewall():
-    remotes = (  # XXX HACK picked manually from eip-service.json
-        ("198.252.153.84", "1194"),
-        ("46.165.242.169", "1194"),
-    )
-
-    firewall = FirewallManager(remotes)
-
-    print("Firewall: starting...")
-    fw_ok = firewall.start()
-    if fw_ok:
-        print("Firewall: started")
-        # vpn_ok = vpn.start()
-        print ("Here we would start VPN")
-    else:
-        print ("Firewall: Error starting.")
-        return
-
-    wait(1)
-    print "Firewall: is up? -> " + str(firewall.is_up())
-    wait(3)
-    print("Firewall: stopping...")
-    fw_ok = firewall.stop()
-    print("Firewall: stopped.")
-    wait(1)
-    print "Firewall: is up? -> " + str(firewall.is_up())
-
-
-def test_vpn():
-    remotes = (  # XXX HACK picked manually from eip-service.json
+def main():
+    # XXX HACK picked manually from eip-service.json
+    remotes = (
         ("198.252.153.84", "1194"),
         ("46.165.242.169", "1194"),
     )
@@ -80,33 +101,12 @@ def test_vpn():
         "tun-ipv6": "true",
     }
 
-    vpn = VPNManager(remotes, cert_path, key_path, ca_path, extra_flags)
-
-    print("VPN: starting...")
-    vpn_ok = vpn.start()
-    if vpn_ok:
-        print("VPN: started")
-    else:
-        print ("VPN: Error starting.")
-        return
-
-    return
-    wait(1)
-    print "VPN: is up? -> " + str(vpn.is_up())
-    wait(3)
-    print("VPN: stopping...")
-    vpn_ok = vpn.stop()
-    print("VPN: stopped.")
-    wait(1)
-    print "VPN: is up? -> " + str(vpn.is_up())
-
-
-def main():
-    # test_firewall()
-    test_vpn()
+    eip = EIPManager(remotes, cert_path, key_path, ca_path, extra_flags)
+    reactor.addSystemEventTrigger('before', 'shutdown', eip.stop)
+    eip.start()
 
 
 if __name__ == "__main__":
-    # main()
+    color_init()
     reactor.callWhenRunning(reactor.callLater, 0, main)
     reactor.run()
