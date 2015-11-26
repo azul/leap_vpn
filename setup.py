@@ -24,7 +24,7 @@ from pkg import utils
 
 VERSION = "0.1.0"
 VERSION_FULL = VERSION_SHORT = VERSION
-DOWNLOAD_BASE = 'https://github.com/leapcode/leap_vpn/archive/%s.tar.gz'
+DOWNLOAD_BASE = 'https://github.com/ivanalejandro0/leap_vpn/archive/%s.tar.gz'
 DOWNLOAD_URL = DOWNLOAD_BASE % VERSION_SHORT
 
 
