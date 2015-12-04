@@ -94,9 +94,15 @@ class EIPService(service.Service, HookableService):
     def startService(self):
         print "Starting EIP Service..."
         super(EIPService, self).startService()
-        self._eip.start()
 
     def stopService(self):
         print "Stopping EIP Service..."
         super(EIPService, self).stopService()
+
+    def do_start(self):
+        self._eip.start()
+        return "Starting"
+
+    def do_stop(self):
         self._eip.stop()
+        return "Stopping"
