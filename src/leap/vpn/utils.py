@@ -33,7 +33,11 @@ def get_path_prefix(standalone=False):
                        configuration storage.
     :type standalone: bool
     """
-    return os.path.expanduser("~/.config")
+    return os.path.expanduser("~/.config")  # hardcoded Linux XDG config path
+
+    # TODO: this is to use XDG specifications
+    # commented temporarily to avoid that extra dependency
+
     # config_home = get_xdg_config_home()
     # if standalone:
     #     config_home = os.path.join(os.getcwd(), "config")

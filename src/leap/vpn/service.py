@@ -66,20 +66,38 @@ class HookableService(object):
 
 class EIPService(service.Service, HookableService):
 
-    def __init__(self):
+    def __init__(self, basepath=None):
+        """
+        Initialize EIP service
+        """
         super(EIPService, self).__init__()
 
+        self._started = False
+
+        if basepath is None:
+            self._basepath = get_path_prefix()
+        else:
+            self._basepath = basepath
+
+    def _setup(self, provider):
+        """
+        Set up EIPManager for a specified provider.
+
+        :param provider: the provider to use, e.g. 'demo.bitmask.net'
+        :type provider: str
+        """
         # XXX picked manually from eip-service.json
         remotes = (
             ("198.252.153.84", "1194"),
             ("46.165.242.169", "1194"),
         )
 
-        prefix = os.path.join(get_path_prefix(),
-                              "leap/providers/demo.bitmask.net/keys")
+        prefix = os.path.join(self._basepath,
+                              "leap/providers/{0}/keys".format(provider))
         cert_path = key_path = prefix + "/client/openvpn.pem"
         ca_path = prefix + "/ca/cacert.pem"
 
+        # XXX picked manually from eip-service.json
         extra_flags = {
             "auth": "SHA1",
             "cipher": "AES-128-CBC",
@@ -99,10 +117,16 @@ class EIPService(service.Service, HookableService):
         print "Stopping EIP Service..."
         super(EIPService, self).stopService()
 
-    def do_start(self):
+    def do_start(self, domain):
+        self._setup(domain)
         self._eip.start()
+        self._started = True
         return "Starting"
 
     def do_stop(self):
-        self._eip.stop()
-        return "Stopping"
+        if self._started:
+            return "Stopping"
+            self._eip.stop()
+            self._started = False
+        else:
+            return "Not started"
