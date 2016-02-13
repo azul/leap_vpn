@@ -4,5 +4,7 @@ from .firewall import FirewallManager
 from .eip import EIPManager
 from .service import EIPService
 
+import errors
 
-__all__ = ['VPNManager', 'FirewallManager', 'EIPManager', 'EIPService']
+__all__ = ['VPNManager', 'FirewallManager', 'EIPManager', 'EIPService',
+           'errors']
