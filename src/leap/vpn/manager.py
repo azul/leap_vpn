@@ -90,7 +90,6 @@ class VPNManager(object):
         * domain name
         """
         host, port = self._get_management()
-        restart = True  # TODO review this!
 
         # TODO need gateways here
         # sorting them doesn't belong in here
@@ -98,8 +97,7 @@ class VPNManager(object):
 
         self._vpn.start(eipconfig=self._eipconfig,
                         providerconfig=self._providerconfig,
-                        socket_host=host, socket_port=port,
-                        restart=restart)
+                        socket_host=host, socket_port=port)
         return True
 
     def stop(self):

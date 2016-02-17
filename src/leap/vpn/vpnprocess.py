@@ -17,7 +17,6 @@
 """
 VPN Manager, spawned in a custom processProtocol.
 """
-import commands
 import os
 import shutil
 import socket
@@ -44,7 +43,7 @@ from leap.vpn.logs import get_logger
 # from leap.bitmask.logs.utils import get_logger
 # from leap.bitmask.util import first, force_eval
 from leap.vpn.utils import first, force_eval
-from leap.vpn.constants import IS_MAC, IS_LINUX
+from leap.vpn.constants import IS_MAC
 
 # from leap.bitmask.services.eip import get_vpn_launcher
 # from leap.bitmask.services.eip import linuxvpnlauncher
@@ -52,7 +51,6 @@ from leap.vpn.constants import IS_MAC, IS_LINUX
 from leap.vpn.utils import get_vpn_launcher
 from leap.vpn import linuxvpnlauncher
 from leap.vpn.udstelnet import UDSTelnet
-
 
 logger = get_logger()
 
@@ -191,25 +189,12 @@ class VPN(object):
         kwargs['signaler'] = self._signaler
         kwargs['remotes'] = self._remotes
 
-        restart = kwargs.pop('restart', False)
-
         # start the main vpn subprocess
         vpnproc = VPNProcess(*args, **kwargs)
 
         if vpnproc.get_openvpn_process():
             logger.info("Another vpn process is running. Will try to stop it.")
             vpnproc.stop_if_already_running()
-
-        # we try to bring the firewall up
-        if IS_LINUX:
-            # gateways = vpnproc.getGateways()
-            gateways = self._remotes
-            firewall_up = self._launch_firewall(gateways,
-                                                restart=restart)
-            if not restart and not firewall_up:
-                logger.error("Could not bring firewall up, "
-                             "aborting openvpn launch.")
-                return
 
         # FIXME it would be good to document where the
         # errors here are catched, since we currently handle them
@@ -246,54 +231,6 @@ class VPN(object):
         self._pollers.extend(poll_list)
         self._start_pollers()
 
-    def _launch_firewall(self, gateways, restart=False):
-        """
-        Launch the firewall using the privileged wrapper.
-
-        :param gateways:
-        :type gateways: list
-
-        :returns: True if the exitcode of calling the root helper in a
-                  subprocess is 0.
-        :rtype: bool
-        """
-        return True
-        # XXX could check for wrapper existence, check it's root owned etc.
-        # XXX could check that the iptables rules are in place.
-        gateways = [gateway for gateway, port in gateways]
-
-        BM_ROOT = force_eval(linuxvpnlauncher.LinuxVPNLauncher.BITMASK_ROOT)
-        cmd = ["pkexec", BM_ROOT, "firewall", "start"]
-        if restart:
-            cmd.append("restart")
-        exitCode = subprocess.call(cmd + gateways)
-        return True if exitCode is 0 else False
-
-    def is_fw_down(self):
-        """
-        Return whether the firewall is down or not.
-
-        :rtype: bool
-        """
-        return True
-        BM_ROOT = force_eval(linuxvpnlauncher.LinuxVPNLauncher.BITMASK_ROOT)
-        fw_up_cmd = "pkexec {0} firewall isup".format(BM_ROOT)
-        fw_is_down = lambda: commands.getstatusoutput(fw_up_cmd)[0] == 256
-        return fw_is_down()
-
-    def tear_down_firewall(self):
-        """
-        Tear the firewall down using the privileged wrapper.
-        """
-        return True
-        if IS_MAC:
-            # We don't support Mac so far
-            return True
-        BM_ROOT = force_eval(linuxvpnlauncher.LinuxVPNLauncher.BITMASK_ROOT)
-        exitCode = subprocess.call(["pkexec",
-                                    BM_ROOT, "firewall", "stop"])
-        return True if exitCode is 0 else False
-
     def bitmask_root_vpn_down(self):
         """
         Bring openvpn down using the privileged wrapper.
@@ -317,18 +254,10 @@ class VPN(object):
         while tries < self.TERMINATE_MAXTRIES:
             if self._vpnproc.transport.pid is None:
                 logger.debug("Process has been happily terminated.")
-
-                # we try to tear the firewall down
-                if IS_LINUX and self._user_stopped:
-                    firewall_down = self.tear_down_firewall()
-                    if firewall_down:
-                        logger.debug("Firewall down")
-                    else:
-                        logger.warning("Could not tear firewall down")
-
                 return
             else:
                 logger.debug("Process did not die, waiting...")
+
             tries += 1
             reactor.callLater(self.TERMINATE_WAIT,
                               self._kill_if_left_alive, tries)
@@ -380,13 +309,6 @@ class VPN(object):
             # if strictly needed.
             reactor.callLater(
                 self.TERMINATE_WAIT, self._kill_if_left_alive)
-
-            if IS_LINUX and self._user_stopped:
-                firewall_down = self.tear_down_firewall()
-                if firewall_down:
-                    logger.debug("Firewall down")
-                else:
-                    logger.warning("Could not tear firewall down")
         else:
             logger.debug("VPN is not running.")
 

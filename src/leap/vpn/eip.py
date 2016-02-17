@@ -32,9 +32,10 @@ class EIPManager(object):
         self._vpn = VPNManager(remotes, cert, key, ca, flags)
 
     def start(self):
-        """TODO: Docstring for start.
-        :returns: TODO
+        """
+        Start EIP service (firewall and vpn)
 
+        This may raise exceptions, see errors.py
         """
         print(Fore.BLUE + "Firewall: starting..." + Fore.RESET)
         fw_ok = self._firewall.start()
@@ -53,9 +54,8 @@ class EIPManager(object):
         print(Fore.GREEN + "VPN: started" + Fore.RESET)
 
     def stop(self):
-        """TODO: Docstring for stop.
-
-        :returns: TODO
+        """
+        Stop EIP service
         """
         print(Fore.BLUE + "Firewall: stopping..." + Fore.RESET)
         fw_ok = self._firewall.stop()
@@ -74,3 +74,9 @@ class EIPManager(object):
 
         print(Fore.GREEN + "VPN: stopped." + Fore.RESET)
         return True
+
+    def get_state(self):
+        pass
+
+    def get_status(self):
+        pass
