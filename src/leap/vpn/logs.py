@@ -18,56 +18,130 @@
 Logs utilities
 """
 
+import logging
 import os
 import sys
 
-# from leap.bitmask.util import get_path_prefix
-from leap.vpn.utils import get_path_prefix
 # from leap.common.files import mkdir_p
 from leap.vpn.utils import mkdir_p
+from leap.vpn.constants import IS_WIN
 
-import logbook
-from logbook.more import ColorizedStderrHandler
-
-LOG_FORMAT = (u'[{record.time:%Y-%m-%d %H:%M:%S}] '
-              u'{record.level_name: <8} - L#{record.lineno: <4} : '
-              u'{record.module}:{record.func_name} - {record.message}')
+# levelname length == 8, since 'CRITICAL' is the longest
+LOG_FORMAT = ('%(asctime)s - %(levelname)-8s - '
+              'L#%(lineno)-4s : %(name)s:%(funcName)s() - %(message)s')
 
 
-def get_logger(perform_rollover=False):
+def get_logger(debug=True, logfile=None, replace_stdout=False):
     """
-    Push to the app stack the needed handlers and return a Logger object.
+    Create the logger and attach the handlers.
 
-    :rtype: logbook.Logger
+    :param debug: the level of the messages that we should log
+    :type debug: bool
+    :param logfile: the file name of where we should to save the logs
+    :type logfile: str
+    :param replace_stdout: wether we should pipe all stdout/stderr to the
+                           logger or not
+    :type replace_stdout: bool
+
+    :return: the new logger with the attached handlers.
+    :rtype: logging.Logger
     """
-    # NOTE: make sure that the folder exists, the logger is created before
-    # saving settings on the first run.
-    _base = os.path.join(get_path_prefix(), "leap")
-    mkdir_p(_base)
-    bitmask_log_file = os.path.join(_base, 'bitmask.log')
+    # TODO: get severity from command line args
+    if debug:
+        level = logging.DEBUG
+    else:
+        level = logging.WARNING
 
-    # level = logbook.WARNING
-    # if flags.DEBUG:
-    #     level = logbook.NOTSET
-    level = logbook.NOTSET
+    # Create logger and formatter
+    logger = logging.getLogger(name='leap.vpn')
+    logger.setLevel(level)
+    formatter = logging.Formatter(LOG_FORMAT)
 
-    # This handler consumes logs not handled by the others
-    null_handler = logbook.NullHandler()
-    null_handler.push_application()
+    # Console handler
+    try:
+        import coloredlogs
+        coloredlogs.install(level='DEBUG')
+    except ImportError:
+        console = logging.StreamHandler()
+        console.setLevel(level)
+        console.setFormatter(formatter)
+        using_coloredlog = False
+    else:
+        using_coloredlog = True
 
-    file_handler = logbook.RotatingFileHandler(
-        bitmask_log_file, format_string=LOG_FORMAT, bubble=True,
-        max_size=sys.maxint)
+    if using_coloredlog:
+        replace_stdout = False
 
-    if perform_rollover:
-        file_handler.perform_rollover()
+    # File handler
+    if logfile is not None:
+        base_path = os.path.dirname(logfile)
+        mkdir_p(base_path)
+        logger.debug('Setting logfile to %s ', logfile)
+        fileh = logging.FileHandler(logfile)
+        fileh.setLevel(logging.DEBUG)
+        fileh.setFormatter(formatter)
+        logger.addHandler(fileh)
+        logger.debug('File handler plugged!')
 
-    file_handler.push_application()
-
-    stream_handler = ColorizedStderrHandler(
-        level=level, format_string=LOG_FORMAT, bubble=True)
-    stream_handler.push_application()
-
-    logger = logbook.Logger('leap')
+    if replace_stdout:
+        replace_stdout_stderr_with_logging(logger)
 
     return logger
+
+
+def replace_stdout_stderr_with_logging(logger):
+    """
+    Replace:
+        - the standard output
+        - the standard error
+        - the twisted log output
+    with a custom one that writes to the logger.
+    """
+    # Disabling this on windows since it breaks ALL THE THINGS
+    # The issue for this is #4149
+    if not IS_WIN:
+        sys.stdout = StreamToLogger(logger, logging.DEBUG)
+        sys.stderr = StreamToLogger(logger, logging.ERROR)
+
+        # Replace twisted's logger to use our custom output.
+        from twisted.python import log
+        log.startLogging(sys.stdout)
+
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+
+    Credits to:
+    http://www.electricmonk.nl/log/2011/08/14/\
+        redirect-stdout-and-stderr-to-a-logger-in-python/
+    """
+    def __init__(self, logger, log_level=logging.INFO):
+        """
+        Constructor, defines the logger and level to use to log messages.
+
+        :param logger: logger object to log messages.
+        :type logger: logging.Handler
+        :param log_level: the level to use to log messages through the logger.
+        :type log_level: int
+                        look at logging-levels in 'logging' docs.
+        """
+        self._logger = logger
+        self._log_level = log_level
+
+    def write(self, data):
+        """
+        Simulates the 'write' method in a file object.
+        It writes the data receibed in buf to the logger 'self._logger'.
+
+        :param data: data to write to the 'file'
+        :type data: str
+        """
+        for line in data.rstrip().splitlines():
+            self._logger.log(self._log_level, line.rstrip())
+
+    def flush(self):
+        """
+        Dummy method. Needed to replace the twisted.log output.
+        """
+        pass
