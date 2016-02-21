@@ -1,4 +1,3 @@
 psutil
 twisted
-logbook
 colorama # requirement for cli, not for the lib
