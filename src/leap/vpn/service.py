@@ -125,8 +125,8 @@ class EIPService(service.Service, HookableService):
 
     def do_stop(self):
         if self._started:
-            return "Stopping"
             self._eip.stop()
             self._started = False
+            return "Stopping"
         else:
             return "Not started"

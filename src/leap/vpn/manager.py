@@ -60,7 +60,8 @@ class _TempProviderConfig(object):
 
 class VPNManager(object):
 
-    def __init__(self, remotes, cert_path, key_path, ca_path, extra_flags):
+    def __init__(self, remotes, cert_path, key_path, ca_path, extra_flags,
+                 mock_signaler):
         """
         Initialize the VPNManager object.
 
@@ -77,7 +78,8 @@ class VPNManager(object):
 
         self._eipconfig = _TempEIPConfig(extra_flags, cert_path, ports)
         self._providerconfig = _TempProviderConfig(domain, ca_path)
-        signaler = None  # XXX handle signaling somehow...
+        # signaler = None  # XXX handle signaling somehow...
+        signaler = mock_signaler
         self._vpn = vpnprocess.VPN(remotes=remotes, signaler=signaler)
 
     def start(self):

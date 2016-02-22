@@ -22,6 +22,8 @@ from colorama import Fore
 
 from leap.vpn import VPNManager
 from leap.vpn import FirewallManager
+from leap.vpn.statusqueue import StatusQueue
+from leap.vpn.zmq_pub import ZMQPublisher
 
 
 class EIPManager(object):
@@ -29,7 +31,10 @@ class EIPManager(object):
         """
         """
         self._firewall = FirewallManager(remotes)
-        self._vpn = VPNManager(remotes, cert, key, ca, flags)
+        self._status_queue = StatusQueue()
+        self._pub = ZMQPublisher(self._status_queue)
+        self._vpn = VPNManager(remotes, cert, key, ca, flags,
+                               self._status_queue)
 
     def start(self):
         """
@@ -37,6 +42,7 @@ class EIPManager(object):
 
         This may raise exceptions, see errors.py
         """
+        self._pub.start()
         print(Fore.BLUE + "Firewall: starting..." + Fore.RESET)
         fw_ok = self._firewall.start()
         if not fw_ok:
@@ -57,6 +63,7 @@ class EIPManager(object):
         """
         Stop EIP service
         """
+        self._pub.stop()
         print(Fore.BLUE + "Firewall: stopping..." + Fore.RESET)
         fw_ok = self._firewall.stop()
 
