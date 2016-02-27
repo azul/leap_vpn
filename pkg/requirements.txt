@@ -1,3 +1,4 @@
 psutil
 twisted
+pyzmq
 colorama # requirement for cli, not for the lib

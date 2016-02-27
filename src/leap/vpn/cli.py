@@ -21,64 +21,10 @@ Command line interface app to use EIP
 import os
 
 from colorama import init as color_init
-from colorama import Fore
 from twisted.internet import reactor
 
-from leap.vpn import VPNManager
-from leap.vpn import FirewallManager
+from leap.vpn import EIPManager
 from leap.vpn.utils import get_path_prefix
-
-
-class EIPManager(object):
-    def __init__(self, remotes, cert, key, ca, flags):
-        """
-        """
-        self._firewall = FirewallManager(remotes)
-        self._vpn = VPNManager(remotes, cert, key, ca, flags)
-
-    def start(self):
-        """TODO: Docstring for start.
-        :returns: TODO
-
-        """
-        print(Fore.BLUE + "Firewall: starting..." + Fore.RESET)
-        fw_ok = self._firewall.start()
-        if not fw_ok:
-            return False
-
-        print(Fore.GREEN + "Firewall: started" + Fore.RESET)
-
-        vpn_ok = self._vpn.start()
-        if not vpn_ok:
-            print (Fore.RED + "VPN: Error starting." + Fore.RESET)
-            self._firewall.stop()
-            print(Fore.GREEN + "Firewall: stopped." + Fore.RESET)
-            return False
-
-        print(Fore.GREEN + "VPN: started" + Fore.RESET)
-
-    def stop(self):
-        """TODO: Docstring for stop.
-
-        :returns: TODO
-        """
-        print(Fore.BLUE + "Firewall: stopping..." + Fore.RESET)
-        fw_ok = self._firewall.stop()
-
-        if not fw_ok:
-            print (Fore.RED + "Firewall: Error stopping." + Fore.RESET)
-            return False
-
-        print(Fore.GREEN + "Firewall: stopped." + Fore.RESET)
-        print(Fore.BLUE + "VPN: stopping..." + Fore.RESET)
-
-        vpn_ok = self._vpn.stop()
-        if not vpn_ok:
-            print (Fore.RED + "VPN: Error stopping." + Fore.RESET)
-            return False
-
-        print(Fore.GREEN + "VPN: stopped." + Fore.RESET)
-        return True
 
 
 def main():
