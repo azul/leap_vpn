@@ -19,6 +19,7 @@
 Command line interface app to use EIP
 """
 import os
+import logging
 
 from colorama import init as color_init
 from twisted.internet import reactor
@@ -26,6 +27,7 @@ from twisted.internet import reactor
 from leap.vpn import EIPManager
 from leap.vpn.utils import get_path_prefix
 
+logging.basicConfig(level=logging.DEBUG)
 
 def main():
     # XXX HACK picked manually from eip-service.json
