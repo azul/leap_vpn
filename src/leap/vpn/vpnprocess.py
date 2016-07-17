@@ -19,7 +19,6 @@ VPN Manager, spawned in a custom processProtocol.
 """
 import os
 import shutil
-import socket
 import subprocess
 import sys
 
@@ -50,7 +49,8 @@ from leap.vpn.constants import IS_MAC
 # from leap.bitmask.services.eip.udstelnet import UDSTelnet
 from leap.vpn.utils import get_vpn_launcher
 from leap.vpn import linuxvpnlauncher
-from leap.vpn.udstelnet import UDSTelnet
+
+from leap.vpn.management_interface import ManagementInterface
 
 logger = get_logger()
 
@@ -360,7 +360,7 @@ class VPNManager(object):
                          backend
         :type signaler: backend.Signaler
         """
-        self._tn = None
+        self._management_interface = ManagementInterface()
         self._signaler = signaler
         self._aborted = False
 
@@ -371,122 +371,6 @@ class VPNManager(object):
     @aborted.setter
     def aborted(self, value):
         self._aborted = value
-
-    def _seek_to_eof(self):
-        """
-        Read as much as available. Position seek pointer to end of stream
-        """
-        try:
-            self._tn.read_eager()
-        except EOFError:
-            logger.debug("Could not read from socket. Assuming it died.")
-            return
-
-    def _send_command(self, command, until=b"END"):
-        """
-        Sends a command to the telnet connection and reads until END
-        is reached.
-
-        :param command: command to send
-        :type command: str
-
-        :param until: byte delimiter string for reading command output
-        :type until: byte str
-
-        :return: response read
-        :rtype: list
-        """
-        # leap_assert(self._tn, "We need a tn connection!")
-
-        try:
-            self._tn.write("%s\n" % (command,))
-            buf = self._tn.read_until(until, 2)
-            self._seek_to_eof()
-            blist = buf.split('\r\n')
-            if blist[-1].startswith(until):
-                del blist[-1]
-                return blist
-            else:
-                return []
-
-        except socket.error:
-            # XXX should get a counter and repeat only
-            # after mod X times.
-            logger.warning('socket error (command was: "%s")' % (command,))
-            self._close_management_socket(announce=False)
-            logger.debug('trying to connect to management again')
-            self.try_to_connect_to_management(max_retries=5)
-            return []
-
-        # XXX should move this to a errBack!
-        except Exception as e:
-            logger.warning("Error sending command %s: %r" %
-                           (command, e))
-        return []
-
-    def _close_management_socket(self, announce=True):
-        """
-        Close connection to openvpn management interface.
-        """
-        logger.debug('closing socket')
-        if announce:
-            self._tn.write("quit\n")
-            self._tn.read_all()
-        self._tn.get_socket().close()
-        self._tn = None
-
-    def _connect_management(self, socket_host, socket_port):
-        """
-        Connects to the management interface on the specified
-        socket_host socket_port.
-
-        :param socket_host: either socket path (unix) or socket IP
-        :type socket_host: str
-
-        :param socket_port: either string "unix" if it's a unix
-                            socket, or port otherwise
-        :type socket_port: str
-        """
-        if self.is_connected():
-            self._close_management_socket()
-
-        try:
-            self._tn = UDSTelnet(socket_host, socket_port)
-
-            # XXX make password optional
-            # specially for win. we should generate
-            # the pass on the fly when invoking manager
-            # from conductor
-
-            # self.tn.read_until('ENTER PASSWORD:', 2)
-            # self.tn.write(self.password + '\n')
-            # self.tn.read_until('SUCCESS:', 2)
-            if self._tn:
-                self._tn.read_eager()
-
-        # XXX move this to the Errback
-        except Exception as e:
-            logger.warning("Could not connect to OpenVPN yet: %r" % (e,))
-            self._tn = None
-
-    def _connectCb(self, *args):
-        """
-        Callback for connection.
-
-        :param args: not used
-        """
-        if self._tn:
-            logger.info('Connected to management')
-        else:
-            logger.debug('Cannot connect to management...')
-
-    def _connectErr(self, failure):
-        """
-        Errorback for connection.
-
-        :param failure: Failure
-        """
-        logger.warning(failure)
 
     def connect_to_management(self, host, port):
         """
@@ -501,18 +385,28 @@ class VPNManager(object):
         :returns: a deferred
         """
         self.connectd = defer.maybeDeferred(
-            self._connect_management, host, port)
+            self._management_interface.connect, host, port)
         self.connectd.addCallbacks(self._connectCb, self._connectErr)
         return self.connectd
 
-    def is_connected(self):
+    def _connectCb(self, *args):
         """
-        Returns the status of the management interface.
+        Callback for connection.
 
-        :returns: True if connected, False otherwise
-        :rtype: bool
+        :param args: not used
         """
-        return True if self._tn else False
+        if self._management_interface.is_connected:
+            logger.info('Connected to management')
+        else:
+            logger.debug('Cannot connect to management...')
+
+    def _connectErr(self, failure):
+        """
+        Errorback for connection.
+
+        :param failure: Failure
+        """
+        logger.warning(failure)
 
     def try_to_connect_to_management(self, retry=0, max_retries=None):
         """
@@ -534,7 +428,7 @@ class VPNManager(object):
                          'not alive.')
             return
         logger.debug('trying to connect to management')
-        if not self.aborted and not self.is_connected():
+        if not self.aborted and not self._management_interface.is_connected:
             self.connect_to_management(self._socket_host, self._socket_port)
             reactor.callLater(
                 self.CONNECTION_RETRY_TIME,
@@ -608,16 +502,18 @@ class VPNManager(object):
         Notifies the gui of the output of the state command over
         the openvpn management interface.
         """
-        if self.is_connected():
-            return self._parse_state_and_notify(self._send_command("state"))
+        if self._management_interface.is_connected:
+            return self._parse_state_and_notify(
+                self._management_interface.get_state())
 
     def get_status(self):
         """
         Notifies the gui of the output of the status command over
         the openvpn management interface.
         """
-        if self.is_connected():
-            return self._parse_status_and_notify(self._send_command("status"))
+        if self._management_interface.is_connected:
+            return self._parse_status_and_notify(
+                self._management_interface.get_status())
 
     @property
     def vpn_env(self):
@@ -630,8 +526,8 @@ class VPNManager(object):
         """
         Attempts to terminate openvpn by sending a SIGTERM.
         """
-        if self.is_connected():
-            self._send_command("signal SIGTERM")
+        if self._management_interface.is_connected:
+            self._management_interface.terminate()
         if shutdown:
             self._cleanup_tempfiles()
 
@@ -729,8 +625,7 @@ class VPNManager(object):
                 # provider, we will get:
                 # TLS Error: local/remote TLS keys are out of sync
                 # However, that should be a rare case right now.
-                self._send_command("signal SIGTERM")
-                self._close_management_socket(announce=True)
+                self._management_interface.terminate()
             except (Exception, AssertionError) as e:
                 logger.warning("Problem trying to terminate OpenVPN: %r"
                                % (e,))
