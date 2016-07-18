@@ -19,11 +19,12 @@ VPN Management Interface, wrapper for the OpenVPN API.
 """
 
 import socket
+import logging
 
 from leap.vpn.udstelnet import UDSTelnet
-from leap.vpn.logs import get_logger
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ManagementInterface(object):
     """
@@ -149,7 +150,7 @@ class ManagementInterface(object):
 
     def terminate(self):
         try:
-            logger.debug("Sending SIGTERM")
+            logger.info("Sending SIGTERM")
             self._tn.write("signal SIGTERM\n")
         except socket.error, msg:
             logger.debug('SIGTERM caused %s' % (msg,))
